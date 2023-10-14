@@ -12,18 +12,9 @@ library(ggridges)
 library(patchwork)
 library(dplyr)
 library(p8105.datasets)
-
-
 ```
 
 ## Problem 1 
-Write a short description of the dataset, noting the size and structure of the data, describing some key variables, and giving illustrative examples of observations. 
-
-Then, do or answer the following (commenting on the results of each):
-
-How many aisles are there, and which aisles are the most items ordered from? 
-
-There are 134 aisles and most items are fresh fruits and vegetables. 
 
 ```{r}
 data("instacart")
@@ -32,11 +23,17 @@ instacart =
   as_tibble()
 ```
 
+Description: There are 1384617 observations and 15 columns/variables. Important variables include product_id, user_id, aisle_id and product_name. 
+
 ```{r}
 instacart |> 
   count(aisle) |> 
   arrange(desc(n))
 ```
+
+How many aisles are there, and which aisles are the most items ordered from? 
+There are 134 aisles and most items are fresh fruits and vegetables. 
+
 
 Make a plot that shows the number of items ordered in each aisle, limiting this to aisles with more than 10000 items ordered. Arrange aisles sensibly, and organize your plot so others can read it.
 
@@ -85,15 +82,10 @@ data("brfss_smart2010")
 ```
 
 First, do some data cleaning:
-
 - format the data to use appropriate variable names;
-
 - focus on the “Overall Health” topic
-
 - include only responses from “Excellent” to “Poor”
-
 - organize responses as a factor taking levels ordered from “Poor” to “Excellent”
-
 
 ```{r}
 brfss_df =  
@@ -103,10 +95,7 @@ brfss_df =
   arrange(factor(response, levels = c("Poor", "Fair", "Very Good", "Good", "Excellent")))
 ```
 
-
-
-- In 2002, which states were observed at 7 or more locations? 
-36 locations consisting of: AZ, CO, CT, DE, FL, GA, HI, ID, IL, IN, KS, LA, MA, MD, ME, MI, MN, MO, NC, NE, NH,NJ, NV, NY, OH, OK, OR, PA, RI, SC, SD, TN, TX, UT, VT, and WA. 
+ 
 
 
 ```{r}
@@ -116,21 +105,20 @@ brfss_df |>
   summarize(observations =n()) |> 
   filter(observations >= 7) 
 ```
-
-What about in 2010?
-45 locations consisting of: AL, AR, AZ, CA, CO, CT, DE, FL, GA, HI, IA, ID, IL, IN, KS, LA, MA, MD, ME, MI, MN, MO, MS, MT, NC, ND, NE, NH, NJ, NM, NV, NY, O, OK, OR, PA, RI, SC, SD, TN, TX, UT, VT, WA, and WY. 
+- In 2002, 36 states were observed at 7 or more locations.
+36 states being AZ, CO, CT, DE, FL, GA, HI, ID, IL, IN, KS, LA, MA, MD, ME, MI, MN, MO, NC, NE, NH,NJ, NV, NY, OH, OK, OR, PA, RI, SC, SD, TN, TX, UT, VT, and WA.
 
 ```{r}
-brfss_2002 = brfss_df |> 
+ brfss_df |> 
   filter(year == 2010) |> 
   group_by(locationabbr) |> 
   summarize(observations =n()) |> 
   filter(observations >= 7) 
 ```
 
+In 2010, 45 locations consisting of: AL, AR, AZ, CA, CO, CT, DE, FL, GA, HI, IA, ID, IL, IN, KS, LA, MA, MD, ME, MI, MN, MO, MS, MT, NC, ND, NE, NH, NJ, NM, NV, NY, O, OK, OR, PA, RI, SC, SD, TN, TX, UT, VT, WA, and WY, had more than 7 or more locations .
 
 - Construct a dataset that is limited to Excellent responses, and contains, year, state, and a variable that averages the data_value across locations within a state. 
-
 - Make a “spaghetti” plot of this average value over time within a state (that is, make a plot showing a line for each state across years – the geom_line geometry and group aesthetic will help).
 
 ```{r}
@@ -147,6 +135,7 @@ brfss_excellent =
        x = "year",
        y = "mean") +
   viridis::scale_color_viridis(discrete = T )
+brfss_excellent
 ```
 
 - Make a two-panel plot showing, for the years 2006, and 2010, distribution of data_value for responses (“Poor” to “Excellent”) among locations in NY State.
@@ -164,8 +153,8 @@ brfss_ny = brfss_df |>
        x = "Response",
        y = "Data Value") +
   viridis::scale_color_viridis(discrete = T )
+brfss_ny
 ```
-
 
 ## Problem 3 
 
@@ -197,7 +186,7 @@ nhanes_demo = read_csv("Data/nhanes_covar.csv", skip = 3) |>
 
 nhanes_accel = read_csv("Data/nhanes_accel.csv") |> 
   janitor::clean_names() |> 
-  mutate(seqn = as.numeric(seqn))
+  mutate(seqn = as.numeric(seqn)) 
 
 nhanes_df = inner_join(nhanes_demo,nhanes_accel, by = "seqn")
 ```
@@ -237,6 +226,7 @@ nhanes_df |>
              y = total_activity, 
             color = sex)) +
   geom_point() +
+  geom_smooth(method = lm) + 
   facet_wrap(~ factor(education, levels = c("more than high school", "high school equivalent", "less than high school")), ncol = 3) +
   labs(title = "Total activity vs age in men and women in different education levels",
        x = "age",
@@ -244,9 +234,29 @@ nhanes_df |>
   viridis::scale_color_viridis(discrete = T )
 ```
 
+Comment: Females and males with high school equivalent or more than high school education are seen to maintain there activity levels as they age. Those in the less than high school education show a decline in total activity as they age, with females showing the bigger decrease trend. 
 
 Make a three-panel plot that shows the 24-hour activity time courses for each education level and use color to indicate sex. Describe in words any patterns or conclusions you can make based on this graph; including smooth trends may help identify differences.
 
 ```{r}
-
+nhanes_df |> 
+  pivot_longer(
+    min1:min1440, 
+    names_to = "minute", 
+    values_to = "activity") |> 
+  mutate(minute = as.numeric(str_sub(minute,4, -1))) |> 
+  ggplot(aes(
+    x = minute, 
+    y = activity,
+    color = sex
+  )) +
+    geom_point(alpha = 1/10, size = 0.2)+
+    geom_smooth()+
+    facet_wrap(~ factor(education, levels = c("more than high school", "high school equivalent", "less than high school")), ncol = 3) +
+  labs(title = "24-hour activity time courses for each education level",
+       x = "minute of day",
+       y = "activity") +
+  viridis::scale_color_viridis(discrete = T )
 ```
+
+Comment: Individuals showed a similar trend regardless of sex and/or education. However, in the "more than high school" education, the females showed more of a plateau trend starting at min500 than their male counterparts. The female individuals have a slightly higher activity level which could help idenitify some differences. 
