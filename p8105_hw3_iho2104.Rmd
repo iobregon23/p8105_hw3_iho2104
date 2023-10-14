@@ -106,7 +106,7 @@ brfss_df =
 
 
 - In 2002, which states were observed at 7 or more locations? 
-36 locations consisting of: AZ, CO, CT, DE, FL, GA, HI, ID, IL, IN
+36 locations consisting of: AZ, CO, CT, DE, FL, GA, HI, ID, IL, IN, KS, LA, MA, MD, ME, MI, MN, MO, NC, NE, NH,NJ, NV, NY, OH, OK, OR, PA, RI, SC, SD, TN, TX, UT, VT, and WA. 
 
 
 ```{r}
@@ -118,7 +118,7 @@ brfss_df |>
 ```
 
 What about in 2010?
-45 locations consisting of: AL, AR, AZ, CA, CO, CT, DE, FL, GA, HI
+45 locations consisting of: AL, AR, AZ, CA, CO, CT, DE, FL, GA, HI, IA, ID, IL, IN, KS, LA, MA, MD, ME, MI, MN, MO, MS, MT, NC, ND, NE, NH, NJ, NM, NV, NY, O, OK, OR, PA, RI, SC, SD, TN, TX, UT, VT, WA, and WY. 
 
 ```{r}
 brfss_2002 = brfss_df |> 
@@ -139,8 +139,14 @@ brfss_excellent =
   filter(str_detect("Excellent", response)) |> 
   group_by(locationabbr, year) |> 
   summarize(avg_data_value = mean(data_value, na.rm = TRUE) ) |> 
-  select(year, locationabbr, avg_data_value ) 
-  
+  select(year, locationabbr, avg_data_value ) |> 
+  ggplot(aes(x = year, 
+             y = avg_data_value, color = locationabbr))+
+  geom_line() +
+  labs(title = "average value over time within a state",
+       x = "year",
+       y = "mean") +
+  viridis::scale_color_viridis(discrete = T )
 ```
 
 - Make a two-panel plot showing, for the years 2006, and 2010, distribution of data_value for responses (“Poor” to “Excellent”) among locations in NY State.
@@ -148,8 +154,10 @@ brfss_excellent =
 ```{r}
 brfss_ny = brfss_df |> 
   filter(locationabbr == "NY", year %in% c(2006, 2010)) |> 
-  ggplot( aes(x = factor(response, levels = c("Poor", "Fair", "Good", "Very good", "Excellent")),  
-             y = data_value)) +
+  ggplot( aes(
+            x = factor(response, levels = c("Poor", "Fair", "Good", "Very good", "Excellent")),  
+             y = data_value, 
+            color = locationdesc)) +
   geom_point() +
   facet_wrap(~ year, ncol = 2) +
   labs(title = "Distribution of data_value by Response in NY State Counties",
@@ -164,20 +172,78 @@ brfss_ny = brfss_df |>
 Load, tidy, merge, and otherwise organize the data sets. Your final dataset should include all originally observed variables; exclude participants less than 21 years of age, and those with missing demographic data; and encode data with reasonable variable classes (i.e. not numeric, and using factors with the ordering of tables and plots in mind).
 
 ```{r}
+nhanes_demo = read_csv("Data/nhanes_covar.csv", skip = 3) |> 
+  janitor::row_to_names(row_number = 1) |> 
+  janitor::clean_names() |> 
+   mutate(
+    sex = 
+      case_match(
+        sex, 
+        "1" ~ "male", 
+        "2" ~ "female"),
+    sex = as.factor(sex), 
+    education = 
+      case_match(
+        education, 
+        "1" ~ "less than high school", 
+        "2" ~ "high school equivalent", 
+        "3" ~ "more than high school"),
+    education = as.factor(education), 
+    seqn = as.numeric(seqn),
+    age = as.numeric(age),
+    bmi = as.numeric(bmi)) |> 
+  filter(age >= 21) |> 
+  na.omit(BMI, education) 
 
+nhanes_accel = read_csv("Data/nhanes_accel.csv") |> 
+  janitor::clean_names() |> 
+  mutate(seqn = as.numeric(seqn))
+
+nhanes_df = inner_join(nhanes_demo,nhanes_accel, by = "seqn")
 ```
 
 Produce a reader-friendly table for the number of men and women in each education category, and create a visualization of the age distributions for men and women in each education category. Comment on these items.
 
 ```{r}
-
+nhanes_df |> 
+  count(sex, education)  |> 
+  pivot_wider(
+    names_from = education, 
+    values_from = n)
 ```
+```{r}
+nhanes_df |> 
+  ggplot(aes(
+    x = factor(education, levels = c("more than high school", "high school equivalent", "less than high school")),
+    y = age, 
+    fill = sex
+  )) +
+  geom_boxplot()+ 
+  labs(title = "age distributions for men and women in each education category",
+       x = "education",
+       y = "age") +
+  viridis::scale_color_viridis(discrete = T )  
+```
+
+Comment: The mean age is similar between females and males in the "less than high school" and "more than high school" education groups. On average, females were older than men in the "high school equivalent group". 
 
 Using your tidied dataset, aggregate across minutes to create a total activity variable for each participant. Plot these total activities (y-axis) against age (x-axis); your plot should compare men to women and have separate panels for each education level. Include a trend line or a smooth to illustrate differences. Comment on your plot.
 
 ```{r}
-
+nhanes_df |> 
+  mutate(total_activity = rowSums(across(min1:min1440))) |> 
+  ggplot( aes(
+            x = age,  
+             y = total_activity, 
+            color = sex)) +
+  geom_point() +
+  facet_wrap(~ factor(education, levels = c("more than high school", "high school equivalent", "less than high school")), ncol = 3) +
+  labs(title = "Total activity vs age in men and women in different education levels",
+       x = "age",
+       y = "total activity") +
+  viridis::scale_color_viridis(discrete = T )
 ```
+
 
 Make a three-panel plot that shows the 24-hour activity time courses for each education level and use color to indicate sex. Describe in words any patterns or conclusions you can make based on this graph; including smooth trends may help identify differences.
 
